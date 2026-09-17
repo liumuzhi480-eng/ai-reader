@@ -1,3 +1,6 @@
+import localforage from 'localforage';
+import { useEffect, useState } from 'react';
+
 import { useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import type { BookMeta } from "../App";
@@ -23,11 +26,27 @@ function CoverThumb({ title }: { title: string }) {
 }
 
 export default function Shelf({ onOpenBook }: { onOpenBook: (b: BookMeta) => void }) {
-  const utils = trpc.useUtils();
-  const { data: books, isLoading } = trpc.books.list.useQuery();
-  const remove = trpc.books.remove.useMutation({
-    onSuccess: () => utils.books.list.invalidate(),
-  });
+    const [books, setBooks] = useState([]);
+  const isLoading = false; // 离线秒开，不需要加载中状态
+
+  // 1. 页面打开时，从手机本地读取书籍
+  useEffect(() => {
+    localforage.getItem('offline_books').then(res => {
+      if (res) {
+        setBooks(res);
+      }
+    });
+  }, []);
+
+  // 2. 离线删除书籍的功能（防止你长按删除时报错）
+  const remove = {
+    mutate: async ({ id }) => {
+      const newBooks = books.filter(b => b.id !== id);
+      await localforage.setItem('offline_books', newBooks);
+      setBooks(newBooks);
+    }
+  };
+
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
