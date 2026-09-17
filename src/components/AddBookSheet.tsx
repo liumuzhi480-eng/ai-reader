@@ -36,8 +36,8 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
     };
     reader.readAsText(file, "utf-8");
   };
-
-      const submitLocal = async () => {
+  
+  const submitLocal = async () => {
     if (!content) return setError("请先选择并读取文件");
 
     // --- 智能极速分章引擎 ---
@@ -45,7 +45,6 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
     const chapters = [];
     let currentTitle = "引言";
     let currentContent = "";
-    // 识别“第一章”、“第1章”、“1.”等常见网文格式
     const chapterRegex = /^\s*(第[零一二三四五六七八九十百千万0-9]+[章卷节回部]|\d+\.)/;
     
     for (let line of lines) {
@@ -56,7 +55,6 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
       } else {
         currentContent += line + '\n';
       }
-      // 防卡死兜底：如果单章超过2万字还没分章，强制截断
       if (currentContent.length > 20000) {
         chapters.push({ title: currentTitle + " (续)", content: currentContent });
         currentContent = "";
@@ -64,13 +62,15 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
     }
     if (currentContent) chapters.push({ title: currentTitle, content: currentContent });
 
-    // 构造带目录的书籍
+    // 构造完全契合原版 UI 的书籍数据
     const newBook = { 
-      id: Date.now().toString(), 
+      id: Date.now(), // 修复 1：去掉 toString()，保持纯数字类型
       title: title || "未命名", 
       author: author || "未知",
       chapters: chapters, 
-      progress: 0 
+      progress: 0,
+      size: content.length, // 修复 2：补充文件字节大小，供书架 UI 展示
+      wordCount: content.length // 补充字数统计
     };
     
     const existingBooks = await localforage.getItem('offline_books') || [];
@@ -79,6 +79,7 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
     alert("导入并分章成功！");
     window.location.reload();
   };
+
 
   const addFromSource = (index: number) => {
     const b = SOURCE_BOOKS[index];
