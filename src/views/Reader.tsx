@@ -1,3 +1,6 @@
+import localforage from 'localforage';
+import { useState } from 'react';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import type { BookMeta } from "../App";
@@ -27,8 +30,28 @@ export default function Reader({
   onBack: () => void;
   onPick: (excerpt: string) => void;
 }) {
-  const { data, isLoading } = trpc.books.get.useQuery({ id: book.id });
-  const saveProgress = trpc.books.updateProgress.useMutation();
+    const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 1. 打开阅读器时，从本地查出这本书的具体内容
+  useEffect(() => {
+    localforage.getItem('offline_books').then((books) => {
+      if (books) {
+        const currentBook = books.find(b => b.id === book.id);
+        setData(currentBook || null);
+      }
+      setIsLoading(false);
+    });
+  }, [book.id]);
+
+  // 2. 模拟原本的保存进度函数，改为存入本地
+  const saveProgress = {
+    mutate: async ({ id, progress }) => {
+      const books = await localforage.getItem('offline_books') || [];
+      const updatedBooks = books.map(b => b.id === id ? { ...b, progress } : b);
+      await localforage.setItem('offline_books', updatedBooks);
+    }
+  };
 
   const [bubble, setBubble] = useState<Bubble | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
