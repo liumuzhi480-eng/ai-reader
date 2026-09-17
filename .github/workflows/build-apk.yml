@@ -18,6 +18,8 @@ jobs:
           if [ -d "app" ]; then
             cp -r app/. .
           fi
+          # 移除旧的依赖锁文件，防止 npm 崩溃
+          rm -f package-lock.json
 
       - name: 配置 Node.js
         uses: actions/setup-node@v4
@@ -40,11 +42,13 @@ jobs:
           }
           EOF
 
-      - name: 安装依赖与构建前端
+      - name: 强制安装依赖并仅编译前端
         run: |
-          npm install --legacy-peer-deps
-          npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
-          npm run build
+          # 强制解决依赖依赖冲突
+          npm install --force
+          npm install @capacitor/core @capacitor/cli @capacitor/android --force
+          # 仅编译前端页面到 dist 目录，跳过后端的打包
+          npx vite build
 
       - name: 生成 Android 工程并同步
         run: |
