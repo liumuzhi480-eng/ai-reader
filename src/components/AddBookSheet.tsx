@@ -37,29 +37,48 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
     reader.readAsText(file, "utf-8");
   };
 
-    const submitLocal = async () => {
-    if (!content) {
-      setError("请先选择并读取文件");
-      return;
-    }
+      const submitLocal = async () => {
+    if (!content) return setError("请先选择并读取文件");
+
+    // --- 智能极速分章引擎 ---
+    const lines = content.split('\n');
+    const chapters = [];
+    let currentTitle = "引言";
+    let currentContent = "";
+    // 识别“第一章”、“第1章”、“1.”等常见网文格式
+    const chapterRegex = /^\s*(第[零一二三四五六七八九十百千万0-9]+[章卷节回部]|\d+\.)/;
     
-    // 构造本地离线书籍数据
+    for (let line of lines) {
+      if (chapterRegex.test(line) && currentContent.length > 300) {
+        chapters.push({ title: currentTitle, content: currentContent });
+        currentTitle = line.trim().substring(0, 30);
+        currentContent = line + '\n';
+      } else {
+        currentContent += line + '\n';
+      }
+      // 防卡死兜底：如果单章超过2万字还没分章，强制截断
+      if (currentContent.length > 20000) {
+        chapters.push({ title: currentTitle + " (续)", content: currentContent });
+        currentContent = "";
+      }
+    }
+    if (currentContent) chapters.push({ title: currentTitle, content: currentContent });
+
+    // 构造带目录的书籍
     const newBook = { 
       id: Date.now().toString(), 
       title: title || "未命名", 
       author: author || "未知",
-      content: content, 
+      chapters: chapters, 
       progress: 0 
     };
     
-    // 存入手机本地存储
     const existingBooks = await localforage.getItem('offline_books') || [];
     await localforage.setItem('offline_books', [newBook, ...existingBooks]);
     
-    alert("导入成功！");
-    window.location.reload(); // 刷新页面展示新书
+    alert("导入并分章成功！");
+    window.location.reload();
   };
-
 
   const addFromSource = (index: number) => {
     const b = SOURCE_BOOKS[index];
