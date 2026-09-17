@@ -65,10 +65,8 @@ export default function Reader({
   const restoredRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const chapters = useMemo(
-    () => (data ? splitChapters(data.content, data.title) : []),
-    [data],
-  );
+    const chapters = data?.chapters || (data?.content ? [{ title: "正文", content: data.content }] : []);
+
 
   // 恢复上次阅读位置
   useEffect(() => {
