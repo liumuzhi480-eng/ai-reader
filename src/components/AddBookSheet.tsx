@@ -1,3 +1,5 @@
+import localforage from 'localforage';
+
 import { useRef, useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { SOURCE_BOOKS } from "../lib/sourceBooks";
@@ -35,16 +37,29 @@ export default function AddBookSheet({ onClose }: { onClose: () => void }) {
     reader.readAsText(file, "utf-8");
   };
 
-  const submitLocal = () => {
-    if (!title.trim()) return setError("给书起个名字");
-    if (content.trim().length < 10) return setError("请导入 txt 文件或粘贴正文");
-    create.mutate({
-      title: title.trim(),
-      author: author.trim(),
-      source: "local",
-      content: content.trim(),
-    });
+    const submitLocal = async () => {
+    if (!content) {
+      setError("请先选择并读取文件");
+      return;
+    }
+    
+    // 构造本地离线书籍数据
+    const newBook = { 
+      id: Date.now().toString(), 
+      title: title || "未命名", 
+      author: author || "未知",
+      content: content, 
+      progress: 0 
+    };
+    
+    // 存入手机本地存储
+    const existingBooks = await localforage.getItem('offline_books') || [];
+    await localforage.setItem('offline_books', [newBook, ...existingBooks]);
+    
+    alert("导入成功！");
+    window.location.reload(); // 刷新页面展示新书
   };
+
 
   const addFromSource = (index: number) => {
     const b = SOURCE_BOOKS[index];
