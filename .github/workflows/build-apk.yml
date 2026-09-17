@@ -8,11 +8,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 开放写入权限，允许云端自动将解压后的代码保存到仓库
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 自动解压与目录精准规整
+      - name: 自动解压代码并展示在仓库中
         run: |
           unzip -o *.zip || true
           PROJECT_ROOT=$(dirname "$(find . -name "package.json" | head -n 1)")
@@ -20,9 +22,17 @@ jobs:
             mv "$PROJECT_ROOT"/* . || true
             mv "$PROJECT_ROOT"/.* . 2>/dev/null || true
           fi
-          rm -f package-lock.json yarn.lock pnpm-lock.yaml
+          # 删掉压缩包，保持仓库清爽
+          rm -f *.zip package-lock.json yarn.lock pnpm-lock.yaml
+          
+          # 强行将解压后的文件提交到仓库
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "自动解压源代码" || true
+          git push || true
 
-      - name: 配置 Node.js 与 Java
+      - name: 配置环境
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -31,25 +41,22 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      - name: 安装依赖 (新增状态栏插件与离线数据库)
+      - name: 安装依赖 (含离线数据库与状态栏插件)
         run: |
           npm install --legacy-peer-deps
-          # 额外安装 Capacitor 状态栏控制插件与 localforage 本地数据库
           npm install @capacitor/status-bar localforage --legacy-peer-deps
 
-      - name: 强制编译前端并注入全屏网页属性
+      - name: 编译前端并突破沉浸式安全区
         env:
           CI: false
         run: |
           npx vite build --outDir android_dist --emptyOutDir
           cd android_dist
-          # 1. 突破刘海屏安全区
           sed -i 's/viewport".*/viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">/g' index.html || true
-          # 2. 注入全局安全距离 CSS，防止文字钻进刘海和底边栏
           sed -i '/<\/head>/i \    <style> html, body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); background-color: #ffffff; } </style>' index.html || true
           cd ..
 
-      - name: 生成 Capacitor 沉浸式配置
+      - name: 配置 Capacitor
         run: |
           cat << 'EOF' > capacitor.config.json
           {
@@ -57,20 +64,15 @@ jobs:
             "appName": "AI书摘阅读器",
             "webDir": "android_dist",
             "bundledWebRuntime": false,
-            "plugins": {
-              "StatusBar": {
-                "overlaysWebView": true
-              }
-            }
+            "plugins": { "StatusBar": { "overlaysWebView": true } }
           }
           EOF
 
-      - name: 初始化 Android 原生工程并强制透明导航栏
+      - name: 生成原生工程并强制透明导航栏
         run: |
           npx cap add android || true
           npx cap sync android
           
-          # 拦截原生库冲突
           cat << 'EOF' >> android/build.gradle
           allprojects {
               configurations.all {
@@ -80,16 +82,15 @@ jobs:
           }
           EOF
           
-          # 强改 Android 原生主题，透明化状态栏与底部小白条区域
           sed -i '/<style name="AppTheme"/a \        <item name="android:windowTranslucentStatus">true</item>\n        <item name="android:windowTranslucentNavigation">true</item>\n        <item name="android:windowDrawsSystemBarBackgrounds">true</item>' android/app/src/main/res/values/styles.xml || true
 
-      - name: 编译最终版 APK
+      - name: 编译 APK
         run: |
           cd android
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon -Dorg.gradle.jvmargs="-Xmx2048m -Dfile.encoding=UTF-8"
 
-      - name: 输出 APK 安装包
+      - name: 输出产物
         uses: actions/upload-artifact@v4
         with:
           name: AI-Reader-Debug
