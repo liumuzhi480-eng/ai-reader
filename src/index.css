@@ -151,3 +151,12 @@
 .no-scrollbar {
   scrollbar-width: none;
 }
+
+html, body, #root {
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden !important; /* 彻底锁死网页外层，禁止 UI 跟着手指拖动 */
+  background-color: hsl(var(--background)) !important; /* 自动提取你 UI 的主题底色进行填充 */
+  padding-top: env(safe-area-inset-top) !important;
+  padding-bottom: env(safe-area-inset-bottom) !important;
+}
