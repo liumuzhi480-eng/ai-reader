@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: 安装依赖
         run: |
@@ -38,10 +38,8 @@ jobs:
 
       - name: 执行前端打包并校验 dist
         run: |
-          # 强制跳过 TS 类型检测，避免小报错中断构建，直接输出前端产物
           npx vite build --emptyOutDir
           
-          # 检查打包结果，若无 dist 则做容错处理
           if [ ! -f "dist/index.html" ]; then
             echo "警告：未检测到 dist/index.html，自动同步资源"
             mkdir -p dist
